@@ -30,20 +30,20 @@ def authenticate():
 
 def get_tweets():
 	auth = authenticate()
-	api = tweepy.API(auth)
+	api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
 	with open('tweets.csv', 'w') as csvfile:
-		field_names = ['text', 'user_id', 'id', 'created_at']
+		field_names = ['created_at', 'text', 'user_id', 'id']
 		writer = csv.DictWriter(csvfile, fieldnames=field_names)
 		writer.writeheader()
 
 		for tweet in tweepy.Cursor(api.search,
-				q="bitcoin",
+				q="bitcoin since:2017-06-11",
 				rpp=100,
 				result_type="recent",
 				include_entities=False,
-				lang="en").items(2):
-			writer.writerow({'text': tweet.text.encode('utf-8'), 'user_id': tweet.user.id,
-				'id': tweet.id, 'created_at': tweet.created_at})
+				lang="en").items():
+			writer.writerow({'created_at': tweet.created_at, 'text': tweet.text.encode('utf-8'), 'user_id': tweet.user.id,
+				'id': tweet.id})
 
 get_tweets()
