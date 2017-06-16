@@ -1,9 +1,8 @@
-"""Functions to fetch or stream tweets"""
+"""Stream tweets and write status"""
 
 import csv
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
 from collections import deque
 import tweepy
 import twitter_auth
@@ -44,29 +43,6 @@ class StreamListener(tweepy.StreamListener):
         print('hello')
         if status_code == 420:
             return False
-
-
-def get_tweets(query):
-    """Fetch tweets matching query via twitter API
-        query: string
-            The Twitter API query
-    """
-    auth = twitter_auth.authenticate()
-    api = tweepy.API(auth, wait_on_rate_limit=True,
-                     wait_on_rate_limit_notify=True)
-
-    with open('data/tweets.csv', 'w') as csvfile:
-        field_names = ['created_at', 'text', 'user_id', 'id']
-        writer = csv.DictWriter(csvfile, fieldnames=field_names)
-
-        for tweet in tweepy.Cursor(api.search,
-                                   q=query,
-                                   rpp=100,
-                                   result_type="recent",
-                                   include_entities=False,
-                                   lang="en").items():
-            writer.writerow({'created_at': tweet.created_at, 'text': tweet.text.encode('utf-8'),
-                             'user_id': tweet.user.id, 'id': tweet.id})
 
 
 def write_status(status, writer):
@@ -115,15 +91,3 @@ def monitor_status(tweet_counter):
         print('                                                                ', end='\r')
         print('Queue length: {}\t\tTotal tweets collected: {}'.format(
             queue_length, tweet_counter.get_tweet_count()), end='\r')
-
-
-def start():
-    """Kick off twitter streaming process and file writing process"""
-    tweet_counter = TweetCounter()
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        executor.submit(stream_tweets, ['bitcoin'], tweet_counter)
-        executor.submit(write_statuses_from_buffer)
-        executor.submit(monitor_status, tweet_counter)
-
-
-start()
