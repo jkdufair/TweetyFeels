@@ -1,4 +1,8 @@
-"""Stream tweets and write status"""
+"""
+Stream tweets and write status
+This module buffers the data and writes in bursts so it doesn't keep the file
+open indefinitely, allowing for sync via dropbox/iCloud/etc.
+"""
 
 import csv
 import re
@@ -9,45 +13,25 @@ import twitter_auth
 
 
 TWEET_QUEUE = deque()
-
-
-class TweetCounter():
-    """Class for managing the global tweet count"""
-
-    def __init__(self):
-        self.tweet_count = 0
-
-    def increment(self):
-        """Bump it up, baby"""
-        self.tweet_count = self.tweet_count + 1
-
-    def get_tweet_count(self):
-        """Return the tweet count. Duh"""
-        return self.tweet_count
+STATS = {'count': 0}
 
 
 class StreamListener(tweepy.StreamListener):
     """Class to listen for twitter streams and handle them"""
 
-    def __init__(self, writerFunction, tweet_counter):
+    def __init__(self, writerFunction):
         """Store the function that writes out the tweet data"""
         self.writer = writerFunction
-        self.tweet_counter = tweet_counter
         super(StreamListener, self).__init__()
 
     def on_status(self, status):
         self.writer(status)
-        self.tweet_counter.increment()
+        STATS['count'] = STATS['count'] + 1
 
     def on_error(self, status_code):
         print('hello')
         if status_code == 420:
             return False
-
-
-def write_status(status, writer):
-    """Write the details of the tweet to the csv writer"""
-    writer.writerow(status)
 
 
 def queue_status(status):
@@ -60,34 +44,31 @@ def queue_status(status):
     TWEET_QUEUE.append(processed_status)
 
 
-def stream_tweets(keywords, tweet_counter):
+def stream_tweets(keywords):
     """Stream tweets about bitcoin to csv file"""
-    print('stream_tweets() started')
+    print('twitter stream_tweets() started')
     auth = twitter_auth.authenticate()
 
-    listener = StreamListener(queue_status, tweet_counter)
+    listener = StreamListener(queue_status)
     stream = tweepy.Stream(auth=auth, listener=listener)
     stream.filter(track=keywords, async=True)
 
 
 def write_statuses_from_buffer():
     """Take the status objects from the tweet buffer and append them to the csv"""
-    print('write_statuses_from_buffer() started')
+    print('twitter write_statuses_from_buffer() started')
     while True:
         time.sleep(60)
         with open('data/tweet_stream.csv', 'a') as csv_file:
             field_names = ['created_at', 'text', 'user_id', 'id']
             writer = csv.DictWriter(csv_file, fieldnames=field_names)
             while TWEET_QUEUE:
-                write_status(TWEET_QUEUE.popleft(), writer)
+                writer.writerow(TWEET_QUEUE.popleft())
 
 
-def monitor_status(tweet_counter):
-    """Print a message to the console with queue length and total tweets written"""
-    print('monitor_status() started')
-    while True:
-        time.sleep(1)
-        queue_length = len(TWEET_QUEUE)
-        print('                                                                ', end='\r')
-        print('Queue length: {}\t\tTotal tweets collected: {}'.format(
-            queue_length, tweet_counter.get_tweet_count()), end='\r')
+def get_stats():
+    """Return statistics about counts and buffer size"""
+    return {
+        'count': STATS['count'],
+        'buffer_size': len(TWEET_QUEUE)
+    }
