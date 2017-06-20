@@ -29,7 +29,7 @@ class StreamListener(tweepy.StreamListener):
         STATS['count'] = STATS['count'] + 1
 
     def on_error(self, status_code):
-        print('hello')
+        print("Error: {}".format(status_code))
         if status_code == 420:
             return False
 
@@ -40,7 +40,16 @@ def queue_status(status):
                         'text': str.lower(
                             re.sub(r'\s+', ' ', status.text.strip())),
                         'user_id': status.user.id,
-                        'id': status.id}
+                        'id': status.id,
+                        'source': status.source,
+                        'in_reply_to_status_id': status.in_reply_to_status_id,
+                        'in_reply_to_user_id': status.in_reply_to_user_id,
+                        'in_reply_to_screen_name': status.in_reply_to_screen_name,
+                        'is_quote_status': status.is_quote_status,
+                        'retweet_count': status.retweet_count,
+                        'favorite_count': status.favorite_count,
+                        'favorited': status.favorited,
+                        'retweeted': status.retweeted}
     TWEET_QUEUE.append(processed_status)
 
 
@@ -60,7 +69,11 @@ def write_statuses_from_buffer():
     while True:
         time.sleep(60)
         with open('data/tweet_stream.csv', 'a') as csv_file:
-            field_names = ['created_at', 'text', 'user_id', 'id']
+            field_names = ['created_at', 'text', 'user_id', 'id',
+                           'source', 'in_reply_to_status_id',
+                           'in_reply_to_user_id', 'in_reply_to_screen_name',
+                           'is_quote_status', 'retweet_count', 'favorite_count',
+                           'favorited', 'retweeted']
             writer = csv.DictWriter(csv_file, fieldnames=field_names)
             while TWEET_QUEUE:
                 writer.writerow(TWEET_QUEUE.popleft())
